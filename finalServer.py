@@ -28,7 +28,7 @@ def handle_client(client_socket):
 def main():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # host_name = socket.gethostname()
-    host_ip = '10.1.0.122'
+    host_ip = '192.168.1.18'
     print('HOST IP:', host_ip)
     port = 9995
     socket_address = (host_ip, port)

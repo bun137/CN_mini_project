@@ -1,12 +1,11 @@
-
 import socket
 import cv2
 import pickle
 import struct
 
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-host_ip = "127.0.1.1"
-port = 9994
+host_ip = '192.168.1.18'
+port = 9995
 client_socket.connect((host_ip, port))
 data = b""
 payload_size = struct.calcsize("Q")
