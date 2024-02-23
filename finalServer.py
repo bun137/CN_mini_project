@@ -7,10 +7,12 @@ import struct
 import threading
 
 
+vid = cv2.VideoCapture(0)
+
+
 def handle_client(client_socket):
     print("GOT CONNECTION FROM:", client_socket.getpeername())
     try:
-        vid = cv2.VideoCapture(5)
         while vid.isOpened():
             img, frame = vid.read()
             if img:
@@ -26,7 +28,7 @@ def handle_client(client_socket):
 def main():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # host_name = socket.gethostname()
-    host_ip = '10.1.17.129'
+    host_ip = '10.1.0.122'
     print('HOST IP:', host_ip)
     port = 9995
     socket_address = (host_ip, port)
