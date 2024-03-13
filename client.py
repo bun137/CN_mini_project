@@ -2,38 +2,89 @@ import socket
 import cv2
 import pickle
 import struct
+import threading
+import pyaudio
+import ssl
 
-client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-host_ip = '192.168.1.18'
-port = 9995
-client_socket.connect((host_ip, port))
-data = b""
-payload_size = struct.calcsize("Q")
-while True:
-    while len(data) < payload_size:
-        packet = client_socket.recv(4*1024)
-        if not packet:
-            break
-        data += packet
-    packed_msg_size = data[:payload_size]
-    data = data[payload_size:]
-    msg_size = struct.unpack("Q", packed_msg_size)[0]
+host_ip = '10.1.16.194'
+port_video = 9997
+port_audio = 9994
 
-    while len(data) < msg_size:
-        data += client_socket.recv(4*1024)
+CHUNK = 1024
+FORMAT = pyaudio.paInt16
+CHANNELS = 2
+RATE = 44100
 
-    frame_data = data[:msg_size]
-    data = data[msg_size:]
+server_sni_hostname = 'example.com'
+server_cert = 'server.crt'
+client_cert = 'client.crt'
+client_key = 'client.key'
 
-    try:
+context = ssl.create_default_context(
+    ssl.Purpose.SERVER_AUTH, cafile=server_cert)
+context.load_cert_chain(certfile=client_cert, keyfile=client_key)
+
+
+def handle_server_video(client_socket):
+    data = b""
+    payload_size = struct.calcsize("Q")
+    while True:
+        while len(data) < payload_size:
+            packet = client_socket.recv(4*1024)
+            if not packet:
+                break
+            data += packet
+        packed_msg_size = data[:payload_size]
+        data = data[payload_size:]
+        msg_size = struct.unpack("Q", packed_msg_size)[0]
+
+        while len(data) < msg_size:
+            data += client_socket.recv(4*1024)
+        frame_data = data[:msg_size]
+        data = data[msg_size:]
+
+        # Extract frame
         frame = pickle.loads(frame_data)
-        cv2.imshow("Received", frame)
-    except Exception as e:
-        print(f"Error deserializing frame data: {e}")
-        break
 
-    key = cv2.waitKey(1) & 0xFF
-    if key == ord('q'):
-        break
+        # Display frame in a window
+        cv2.imshow("RECEIVING VIDEO", frame)
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('q'):
+            break
 
-client_socket.close()
+
+def handle_server_audio(client_socket):
+    p = pyaudio.PyAudio()
+    stream = p.open(format=FORMAT,
+                    channels=CHANNELS,
+                    rate=RATE,
+                    output=True,
+                    frames_per_buffer=CHUNK)
+    try:
+        while True:
+            audio_data = client_socket.recv(CHUNK)
+            stream.write(audio_data)
+    finally:
+        stream.stop_stream()
+        stream.close()
+        p.terminate()
+
+
+def main():
+    client_socket_video = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket_video.connect((host_ip, port_video))
+
+    client_socket_audio = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket_audio.connect((host_ip, port_audio))
+
+    video_thread = threading.Thread(
+        target=handle_server_video, args=(client_socket_video,))
+    video_thread.start()
+
+    audio_thread = threading.Thread(
+        target=handle_server_audio, args=(client_socket_audio,))
+    audio_thread.start()
+
+
+if _name_ == "_main_":
+    main()
